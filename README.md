@@ -2,4 +2,4 @@
 Calendrier et timer pour le Farfa'dés
 
 ## Acces au site :
-https://fredericsagnimorte.github.io/FarfaTimer/
+[Le Farfa'Timer](https://lefarfades.github.io/FarfaTimer/)

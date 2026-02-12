@@ -42,31 +42,49 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        function tick() {
+            if (!timers[id].endTime) return;
+
+            const remaining = Math.max(0, Math.round((timers[id].endTime - Date.now()) / 1000));
+            timers[id].seconds = remaining;
+            render();
+
+            if (remaining > 0) {
+                // Rappel toutes les 0.5s pour fluidité
+                timers[id].interval = requestAnimationFrame(tick);
+            } else {
+                timers[id].interval = null;
+                timers[id].endTime = null;
+                alert(`Timer ${id} terminé !`);
+            }
+        }
+
         function start() {
             if (timers[id].interval) return;
-            if (timers[id].seconds <= 0) timers[id].seconds = sanitizeInput() * 60;
 
-            timers[id].interval = setInterval(() => {
-                if (timers[id].seconds > 0) {
-                    timers[id].seconds--;
-                    render();
-                } else {
-                    clearInterval(timers[id].interval);
-                    timers[id].interval = null;
-                    alert(`Timer ${id} terminé !`);
-                }
-            }, 1000);
+            if (!timers[id].endTime) {
+                timers[id].endTime = Date.now() + timers[id].seconds * 1000;
+            }
+
+            tick();
         }
 
         function pause() {
-            clearInterval(timers[id].interval);
+            if (timers[id].interval) cancelAnimationFrame(timers[id].interval);
             timers[id].interval = null;
+
+            // recalculer le seconds restant pour reprendre plus tard
+            if (timers[id].endTime) {
+                timers[id].seconds = Math.max(0, Math.round((timers[id].endTime - Date.now()) / 1000));
+                timers[id].endTime = null;
+            }
         }
 
         function stop() {
-            clearInterval(timers[id].interval);
+            if (timers[id].interval) cancelAnimationFrame(timers[id].interval);
             timers[id].interval = null;
             timers[id].seconds = sanitizeInput() * 60;
+            timers[id].endTime = null;
             render();
         }
 
@@ -82,8 +100,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Quand l’utilisateur change la durée
         input.addEventListener('change', () => {
             timers[id].seconds = sanitizeInput() * 60;
+            timers[id].endTime = null;
             render();
         });
 
@@ -169,6 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('resResource').value = event.title;
         document.getElementById('resStart').value = event.startStr.substring(11, 16);
         document.getElementById('resEnd').value = event.endStr.substring(11, 16);
+        document.getElementById('resPerson').value = event.extendedProps.person || "";
 
         // Afficher le bouton supprimer pour modification
         document.getElementById('deleteReservationBtn').hidden = false;
@@ -235,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('resResource').value = "";  // -- Choisir --
         document.getElementById('resStart').value = "12:00"; // début par défaut
         document.getElementById('resEnd').value = "13:00";   // fin par défaut
+        document.getElementById('resPerson').value = "";  // Réservé pour remis a zéro
 
         // Masquer le bouton supprimer
         document.getElementById('deleteReservationBtn').hidden = true;
@@ -261,13 +283,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const dialog = document.getElementById('reservationModal');
 
-            const date = dialog.dataset.date;
-
+            const date = dialog.dataset.date.split('T')[0];
             const resource = document.getElementById('resResource').value;
+            const person = document.getElementById('resPerson').value;
             const start = document.getElementById('resStart').value;
             const end = document.getElementById('resEnd').value;
 
-            if (!resource || !start || !end || end <= start) {
+
+            if (!resource || !start || !end || !person || end <= start) {
                 alert("Informations invalides");
                 return;
             }
@@ -297,7 +320,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     date,
                     resource,
                     start,
-                    end
+                    end,
+                    person
                 };
 
                 saveReservations(reservations);
@@ -306,6 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.setProp('title', resource);
                 event.setStart(`${date}T${start}`);
                 event.setEnd(`${date}T${end}`);
+                event.setExtendedProps({ person });
 
             } else {
                 // ➕ NOUVELLE RÉSERVATION
@@ -314,7 +339,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     date,
                     resource,
                     start,
-                    end
+                    end,
+                    person
                 };
 
                 reservations.push(reservation);
@@ -324,7 +350,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     id: reservation.id,
                     title: resource,
                     start: `${date}T${start}`,
-                    end: `${date}T${end}`
+                    end: `${date}T${end}`,
+                    extendedProps: { person: reservation.person }
                 });
             }
 
